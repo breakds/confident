@@ -11,7 +11,7 @@ module type CONF_PARSER = sig
   val tokenize : string -> token list
 end
 
-  (* module LispParser : CONF_PARSER = struct *)
+(* module LispParser : CONF_PARSER = struct *)
   
 type token = 
   Integer of string
@@ -34,6 +34,7 @@ type value =
 | FloatVal of float
 | StrVal of string
 | Id of string
+| Nil
 
 type expr =
   Val of value
@@ -46,6 +47,8 @@ type expr =
 type conf = string * expr
   
 exception TokenizeError of string
+
+exception ParseError of string
     
 let tokenize ( filename : string ) = 
   let ic : in_channel = open_in filename 
@@ -96,23 +99,40 @@ let tokenize ( filename : string ) =
      in tokenize_iter [] Closed;;
 
 let parse_token_list ( tklst : token list ) =
-  let rec parse_iter ( accu : conf list ) ( lst : token list ) ( depth : int ) 
-      ( env : string list ) ( var : string ) ( collect : expr list ) =
+  let rec next_expr ( lst : token list ) ( env : string list ) =
     match lst with
-      tk::rest -> (
-        match tk with
-          OpenParen -> (
-            match rest with
-              name::remainder -> 
-                if depth = 0 
-                then parse_iter accu remainder 1 env name []
-                else match name with
-                  
-          
-      
-  
-    
-    
+      OpenParen::name::l -> (
+        let body, rest = complete_list l env
+        in match name with
+          Plus -> (Sum(body)), rest
+        | Minus -> (Diff(body)), rest
+        | Mul -> (Prod(body)), rest
+        | Div -> (Quot(body)), rest
+        | _ -> raise (ParseError "unrecognized operator")
+      )
+    | (Integer(s))::l -> (Val(IntVal( int_of_string s ))), l
+    | (Float(s))::l -> (Val(FloatVal( float_of_string s ))), l
+    | (String(s))::l -> if mem s env then (Val(Id( s ))), l else (Val(StrVal( s ))), l
+    | something::l -> raise (ParseError "invalid syntax")
+    | _ -> (Val( Nil )), [] (* empty lst case *)
+  and complete_list ( lst : token list ) ( env : string list ) =
+    match hd lst with
+      CloseParen -> [], []
+    | _ -> let e, rest = next_expr lst env
+           in let relst, remainder = complete_list rest env
+              in (e::relst), remainder
+  in let rec parse_iter ( accu : conf list ) ( lst : token list ) ( env : string list ) =
+       match lst with
+         [] -> rev accu
+       | OpenParen::(String(var))::remainder -> (
+         let body, rest = complete_list remainder env
+         in match body with
+           e::[] -> parse_iter ((var, e)::accu) rest (var::env)
+         | e::r -> parse_iter ((var, body)::accu) rest (var::env)
+         | _ -> raise (ParseError "invalid assignment value")
+       )
+       | _ -> raise (ParseError "invalid assignment form")
+     in parse_iter [] tklst [];;
 (* end *)
 
 
