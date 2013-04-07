@@ -105,7 +105,7 @@ module LispParser : CONF_PARSER = struct
                | ')' -> tokenize_iter (CloseParen::accu) Closed
                | _ -> tokenize_iter ((merge ch (hd accu))::(tl accu)) Open
              )
-         with End_of_file -> rev accu
+         with End_of_file -> close_in ic; rev accu
        in tokenize_iter [] Closed;;
 
   let parse_token_list ( tklst : token list ) =
