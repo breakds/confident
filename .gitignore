@@ -8,4 +8,4 @@
 *.cmxs
 *.cmxa
 *~
-build/*
+_build/*
